@@ -1,0 +1,20 @@
+[package]
+name = "client"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tracing = {workspace=true}
+tracing-subscriber = {workspace=true}
+
+tokio = {workspace=true}
+#secp256k1 = { workspace=true }
+sha2 = {workspace=true}
+anyhow = {workspace=true}
+common = {workspace=true}
+bitcode = {workspace=true}
+blst = {workspace=true}
+
+[features]
+default = ["allow_all_executors"]
+allow_all_executors = []

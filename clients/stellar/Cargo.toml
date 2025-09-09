@@ -1,0 +1,20 @@
+[package]
+name = "stellar"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = {workspace=true}
+anyhow = {workspace=true}
+stellar-xdr = {workspace=true}
+ingest = {workspace=true}
+zephyr = {workspace=true, ref="2d38040"}
+serde = {workspace=true}
+toml = {workspace=true}
+tracing = {workspace=true}
+tracing-subscriber = {workspace=true}
+#secp256k1 = { workspace=true }
+blst = {workspace=true}
+
+common = {workspace=true}
+client = {workspace=true}

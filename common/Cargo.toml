@@ -1,0 +1,19 @@
+[package]
+name = "common"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+#secp256k1 = { workspace=true }
+serde = { workspace=true }
+sha2 = { workspace=true }
+bitcode = { workspace=true, features=["serde"] }
+libp2p = { workspace = true, features = [ "tokio", "mdns", "noise", "macros", "quic", "dns", "gossipsub", "request-response" ] }
+futures = { workspace=true }
+async-trait = { workspace=true }
+tokio = { workspace=true, features=["full"] }
+tracing = { workspace=true }
+rand = { workspace=true }
+stellar-xdr = { workspace=true }
+anyhow = { workspace=true }
+blst = {workspace=true}
