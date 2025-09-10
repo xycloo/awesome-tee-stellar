@@ -12,6 +12,7 @@ tracing = {workspace=true}
 tracing-subscriber = {workspace=true}
 bitcode = {workspace=true}
 blst = {workspace=true}
+hex = {workspace=true}
 
 [features]
 default = ["allow_all_executors"]

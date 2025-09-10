@@ -7,6 +7,7 @@ tracing = "0.1.41"
 tracing-subscriber = "0.3.20"
 serde = {version="1", features=["derive"]}
 bitcode = {version="0.6.7", features=["serde"]}
+bincode = "1.0"
 anyhow = "1.0.75"
 toml = "0.8.9"
 libp2p = "0.55.0"
@@ -14,16 +15,24 @@ futures = "0.3.31"
 async-trait = "0.1.89"
 rand = "0.9.2"
 blst = "0.3.15"
+tokio-postgres = "0.7.10"
+postgres = { version = "0.19.9", features = ["with-serde_json-1"] }
 
 #secp256k1 = { version = "0.30.0", features = ["rand"] }
 sha2 = "0.10.8"
+md5 = "0.7.0"
 
 #zephyr = { package = "zephyr-vm", git = "https://github.com/xycloo/zephyr", ref="f746e55" }
 zephyr = { package = "zephyr-vm", path = "../zephyr/rs-zephyr-env" }
 ingest = {git ="https://github.com/xycloo/rs-ingest" }
+retroshade = { git = "https://github.com/xycloo/retroshade", rev="fb5f977" }
+rs-zephyr-common = {git="https://github.com/xycloo/rs-zephyr-toolkit", branch="stellar-main-2"}
 
 common = {path="./common"}
 client = {path="./client"}
+
+stellar-strkey = {version="0.0.8"}
+hex = "0.4.3"
 
 [workspace.dependencies.stellar-xdr]
 version = "=23.0.0"

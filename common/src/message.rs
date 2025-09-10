@@ -175,3 +175,21 @@ impl ToSigningHash for MessageKind {
         Ok(hash)
     }
 }
+
+impl ToSigningHash for ChainEventKind {
+    fn compute_hash(&self) -> anyhow::Result<[u8; 32]> {
+        let payload = bitcode::serialize(&self)?;
+        let hash: [u8; 32] = sha2::Sha256::digest(&payload).try_into()?;
+
+        Ok(hash)
+    }
+}
+
+impl ToSigningHash for ChainStateResponseKind {
+    fn compute_hash(&self) -> anyhow::Result<[u8; 32]> {
+        let payload = bitcode::serialize(&self)?;
+        let hash: [u8; 32] = sha2::Sha256::digest(&payload).try_into()?;
+
+        Ok(hash)
+    }
+}

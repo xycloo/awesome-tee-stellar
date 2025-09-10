@@ -15,6 +15,7 @@ tracing = {workspace=true}
 tracing-subscriber = {workspace=true}
 #secp256k1 = { workspace=true }
 blst = {workspace=true}
-
+rand = {workspace=true}
 common = {workspace=true}
 client = {workspace=true}
+hex = {workspace=true}

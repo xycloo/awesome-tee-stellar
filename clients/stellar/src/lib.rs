@@ -5,7 +5,6 @@ use common::message::{
     ChainEventKind, ChainStateRequestKind, ChainStateResponseKind, StellarLedgerEntry,
     StellarStateResponse,
 };
-use secp256k1::SecretKey;
 use stellar_xdr::next::{LedgerEntry, Limits, ReadXdr, WriteXdr};
 use tokio::sync::mpsc;
 use zephyr::snapshot::raw_endpoint::configurable_entry_and_ttl;
@@ -21,8 +20,9 @@ impl StellarClient {
         Self { core_endpoint }
     }
 
-    pub fn client_from_self(self, signing_key: SecretKey) -> CommitteeNode<Self> {
-        CommitteeNode::new(signing_key, self)
+    pub fn client_from_self(self, signing_key: &[u8; 32]) -> anyhow::Result<CommitteeNode<Self>> {
+        let node = CommitteeNode::new(signing_key, self)?;
+        Ok(node)
     }
 }
 
@@ -45,7 +45,10 @@ impl BlockchainClient for StellarClient {
                 let mut response = HashMap::new();
 
                 for key in state_request.inner() {
-                    let entry = configurable_entry_and_ttl(key, self.core_endpoint)?;
+                    let entry = configurable_entry_and_ttl(
+                        key.to_xdr(Limits::none()).unwrap(),
+                        self.core_endpoint.clone(),
+                    )?;
                     if let Some((entry, ttl)) = entry {
                         response.insert(
                             key,

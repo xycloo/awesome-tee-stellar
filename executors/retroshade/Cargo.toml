@@ -12,7 +12,19 @@ anyhow = {workspace=true}
 tracing = {workspace=true}
 tracing-subscriber = {workspace=true}
 bitcode = {workspace=true}
-
+retroshade = {workspace=true}
+zephyr = {workspace=true}
+tokio-postgres = {workspace=true}
+postgres = {workspace=true}
+sha2 = {workspace=true}
+stellar-xdr = {workspace=true}
+toml = {workspace=true}
+serde = {workspace=true}
+stellar-strkey = {workspace=true}
+md5 = {workspace=true}
+hex = {workspace=true}
+rs-zephyr-common = {workspace=true}
+bincode = {workspace=true}
 
 [features]
 default = ["allow_all_executors"]

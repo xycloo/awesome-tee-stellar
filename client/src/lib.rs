@@ -92,18 +92,15 @@ impl<B: BlockchainClient> CommitteeNode<B> {
             anyhow::bail!("signer not allowed, needs to attest first");
         }
 
-        match message.inner() {
-            MessageKind::CollectorChainStateRequest(requested_state) => {
-                let result = self.inner.retrieve_chain_state(requested_state.kind)?;
-                self.broadcast_overlay_message(
-                    MessageKind::CollectorChainStateResponse(ChainStateResponse::new(
-                        requested_state.reference,
-                        result,
-                    )),
-                    "chainstate",
-                )?;
-            }
-            _ => (),
+        if let MessageKind::CollectorChainStateRequest(requested_state) = message.inner() {
+            let result = self.inner.retrieve_chain_state(requested_state.kind)?;
+            self.broadcast_overlay_message(
+                MessageKind::CollectorChainStateResponse(ChainStateResponse::new(
+                    requested_state.reference,
+                    result,
+                )),
+                "chainstate",
+            )?;
         }
 
         Ok(())

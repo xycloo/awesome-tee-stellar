@@ -9,7 +9,7 @@ use libp2p::{
     identity::Keypair,
     request_response::{
         Behaviour as ReqRespBehaviour, Config as ReqRespConfig, Event as ReqRespEvent,
-        InboundRequestId, Message as ReqRespMessage, ProtocolSupport, ResponseChannel,
+        Message as ReqRespMessage, ProtocolSupport, ResponseChannel,
     },
     swarm::{NetworkBehaviour, SwarmEvent, dial_opts::DialOpts},
 };
@@ -108,6 +108,12 @@ impl ExecutorChannel {
 #[derive(PartialEq, Eq, Clone, Debug, Hash, Serialize, Deserialize, Copy)]
 pub struct Reference {
     req_id: u64,
+}
+
+impl Default for Reference {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Reference {
@@ -215,8 +221,7 @@ impl Networking {
                     ..
                 } => {
                     let reference = Reference::new();
-                    let _ = self
-                        .inbound_tx
+                    self.inbound_tx
                         .send(Inbound {
                             from: peer,
                             topic: "dm".to_string(),
@@ -263,10 +268,7 @@ impl Networking {
                         let topic = self
                             .topic_by_name
                             .entry(t.clone())
-                            .or_insert_with(|| {
-                                let tp = Topic::new(t.clone());
-                                tp
-                            })
+                            .or_insert_with(|| Topic::new(t.clone()))
                             .clone();
                         let _ = self
                             .swarm
@@ -301,8 +303,7 @@ impl Networking {
             .pending_pool
             .remove(&reference)
             .ok_or(anyhow::anyhow!("reference doesn't exist in cache"))?;
-        let _ = self
-            .swarm
+        self.swarm
             .behaviour_mut()
             .dm
             .send_response(connection.channel, DMResponse(payload))

@@ -1,7 +1,9 @@
+use std::collections::HashSet;
+
 use anyhow::{Context, anyhow};
 use blst::min_pk::{self as bls, AggregateSignature, Signature};
 
-use crate::message::{NetworkingMessage, ToSigningHash};
+use crate::message::{AggregateSignatureData, NetworkingMessage, ToSigningHash};
 
 pub const DST: &[u8] = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
 
@@ -58,5 +60,32 @@ impl SigCombiner for BlstMinPkCombiner {
         let agg_sig = agg.to_signature();
 
         Ok(agg_sig.to_bytes().to_vec())
+    }
+}
+
+impl<T: ToSigningHash> AggregateSignatureData<T> {
+    pub fn verify(&self) -> anyhow::Result<()> {
+        let msg = self.inner.compute_hash().context("compute hash")?;
+
+        let sig = bls::Signature::from_bytes(&self.aggregated_signature)
+            .map_err(|_| anyhow::anyhow!("invalid aggregated signature bytes"))?;
+
+        let mut uniq = HashSet::<&[u8]>::new();
+        let mut pks = Vec::<bls::PublicKey>::with_capacity(self.signers.len());
+        for pk_bytes in &self.signers {
+            if uniq.insert(pk_bytes.as_slice()) {
+                let pk = bls::PublicKey::from_bytes(pk_bytes)
+                    .map_err(|_| anyhow::anyhow!("invalid BLS public key bytes"))?;
+                pks.push(pk);
+            }
+        }
+        anyhow::ensure!(!pks.is_empty(), "no signers present");
+
+        let pk_refs: Vec<&bls::PublicKey> = pks.iter().collect();
+        let err = sig.fast_aggregate_verify(true, &msg, DST, &pk_refs);
+        if err != blst::BLST_ERROR::BLST_SUCCESS {
+            anyhow::bail!("aggregate verification failed: {:?}", err);
+        }
+        Ok(())
     }
 }
