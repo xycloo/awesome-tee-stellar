@@ -10,7 +10,7 @@ async fn main() {
             .unwrap();
 
     let mut node = client.client_from_self(&key).unwrap();
-    let result = node.start().await;
+    let result = node.start(vec![todo!()]).await;
 
     tracing::info!("{:?}", result);
 }

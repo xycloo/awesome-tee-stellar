@@ -12,6 +12,6 @@ async fn main() {
     }
 
     let mut collector: Collector<crypto::BlstMinPkCombiner> = Collector::new(commitee_signers);
-    let result = collector.worker().await;
+    let result = collector.worker(vec![todo!()]).await;
     tracing::info!("{:?}", result);
 }

@@ -1,6 +1,7 @@
 use anyhow::Result;
+pub use libp2p::Multiaddr;
 use libp2p::{
-    Multiaddr, PeerId, Swarm,
+    PeerId, Swarm,
     futures::StreamExt,
     gossipsub::{
         self, Behaviour as GossipsubBehaviour, Event as GossipsubEvent, IdentTopic as Topic,
@@ -11,11 +12,10 @@ use libp2p::{
         Behaviour as ReqRespBehaviour, Config as ReqRespConfig, Event as ReqRespEvent,
         Message as ReqRespMessage, ProtocolSupport, ResponseChannel,
     },
-    swarm::{NetworkBehaviour, SwarmEvent, dial_opts::DialOpts},
+    swarm::{ConnectionId, DialError, NetworkBehaviour, SwarmEvent, dial_opts::DialOpts},
 };
 use rand::random;
 use serde::{Deserialize, Serialize};
-use sha2::Digest;
 use std::{collections::HashMap, time::Duration};
 use tokio::{
     select,
@@ -320,6 +320,15 @@ impl Networking {
     pub async fn listen(&self, addr: Multiaddr) -> Result<()> {
         self.cmd_tx.send(Command::Listen(addr)).await?;
         Ok(())
+    }
+
+    pub fn connect(&mut self, peer_addr: &Multiaddr) -> Result<ConnectionId, DialError> {
+        let opt = DialOpts::from(peer_addr.clone());
+        let connection_id = opt.connection_id();
+
+        tracing::debug!("attempting to dial {peer_addr}. connection_id:{connection_id:?}");
+        self.swarm.dial(opt)?;
+        Ok(connection_id)
     }
 }
 

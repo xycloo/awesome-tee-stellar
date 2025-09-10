@@ -15,5 +15,9 @@ async fn main() {
         untrusted_node_address: "127.0.0.1:8085".into(),
         database_conn: "postgresql://postgres@localhost:5432/mercury_light_db".into(),
     };
-    let executor = Executor::new(committee_signers, config);
+
+    let mut executor = Executor::new(committee_signers, config).await.unwrap();
+    let result = executor.worker(vec![todo!()]).await;
+
+    tracing::info!("{:?}", result);
 }

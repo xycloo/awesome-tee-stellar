@@ -4,7 +4,7 @@ use common::{
         AggregateSignatureData, ChainEventKind, ChainStateResponseKind, MessageKind,
         NetworkingMessage, ToSigningHash,
     },
-    networking::{Inbound, Outbound, build_overlay},
+    networking::{Inbound, Multiaddr, Outbound, build_overlay},
 };
 use sha2::{Digest, Sha256};
 use tokio::sync::broadcast;
@@ -74,13 +74,17 @@ impl Executor {
         Ok(true)
     }
 
-    pub async fn worker(&mut self) -> anyhow::Result<()> {
+    pub async fn worker(&mut self, connect_to: Vec<Multiaddr>) -> anyhow::Result<()> {
         let (mut overlay_incoming_receiver, overlay_broadcast_tx, mut overlay) =
             build_overlay(vec![
                 "chainevent".into(),
                 "chainstate".into(),
                 "executorchainevent".into(),
             ])?;
+
+        for peer in connect_to {
+            overlay.connect(&peer).unwrap();
+        }
 
         self.set_overlay_broadcast_tx(overlay_broadcast_tx);
         self.load_retroshade_contracts().await;

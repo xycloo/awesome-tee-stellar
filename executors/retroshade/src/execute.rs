@@ -136,7 +136,7 @@ impl Executor {
         sha2::Sha256::digest(payload.to_xdr(stellar_xdr::next::Limits::none()).unwrap()).into()
     }
 
-    pub async fn retroshades_main(&self, meta: stellar_xdr::next::LedgerCloseMeta) {
+    pub(crate) async fn retroshades_main(&self, meta: stellar_xdr::next::LedgerCloseMeta) {
         let client = self.db.client();
 
         let retroshade_effects = self

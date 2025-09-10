@@ -4,7 +4,7 @@ use common::{
     message::{
         AggregateSignatureData, ChainStateRequest, MessageKind, NetworkingMessage, ToSigningHash,
     },
-    networking::{Inbound, Outbound, Reference, build_overlay},
+    networking::{Inbound, Multiaddr, Outbound, Reference, build_overlay},
 };
 use std::collections::HashMap;
 use tokio::sync::broadcast;
@@ -60,13 +60,18 @@ impl<C: SigCombiner> Collector<C> {
         Ok(true)
     }
 
-    pub async fn worker(&mut self) -> anyhow::Result<()> {
+    pub async fn worker(&mut self, connect_to: Vec<Multiaddr>) -> anyhow::Result<()> {
         let (mut overlay_incoming_receiver, overlay_broadcast_tx, mut overlay) =
             build_overlay(vec![
                 "chainevent".into(),
                 "chainstate".into(),
                 "executorchainevent".into(),
             ])?;
+
+        for peer in connect_to {
+            overlay.connect(&peer).unwrap();
+        }
+
         self.set_overlay_broadcast_tx(overlay_broadcast_tx);
 
         tokio::spawn(async move {

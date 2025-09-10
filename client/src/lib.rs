@@ -4,7 +4,7 @@ use common::{
         ChainEventKind, ChainStateRequestKind, ChainStateResponse, ChainStateResponseKind,
         MessageKind, NetworkingMessage,
     },
-    networking::{Inbound, Outbound, build_overlay},
+    networking::{Inbound, Multiaddr, Outbound, build_overlay},
 };
 use tokio::sync::{broadcast, mpsc};
 
@@ -45,12 +45,16 @@ impl<B: BlockchainClient> CommitteeNode<B> {
         Ok(true)
     }
 
-    pub async fn start(&mut self) -> anyhow::Result<()> {
+    pub async fn start(&mut self, connect_to: Vec<Multiaddr>) -> anyhow::Result<()> {
         // first we start the client job
         let mut event_receiver = B::spawn_chain_event_worker()?;
         let (mut overlay_incoming_receiver, overlay_broadcast_tx, mut overlay) =
             build_overlay(vec!["chainevent".into(), "chainstate".into()])?;
         self.set_overlay_broadcast_tx(overlay_broadcast_tx);
+
+        for peer in connect_to {
+            overlay.connect(&peer).unwrap();
+        }
 
         tokio::spawn(async move {
             if let Err(e) = overlay.worker().await {
