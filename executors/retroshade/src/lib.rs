@@ -150,6 +150,10 @@ impl Executor {
         &mut self,
         payload: &AggregateSignatureData<T>,
     ) -> anyhow::Result<()> {
+        if payload.signers.len() < self.committee_signers.len() - 1 {
+            anyhow::bail!("threshold invalid");
+        }
+        
         for signer in &payload.signers {
             if !self.is_committee_member(signer)? {
                 tracing::info!(
