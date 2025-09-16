@@ -1,3 +1,4 @@
+
 use common::message::{ChainEventKind, StellarLedgerClose};
 use ingest::{CaptiveCore, IngestionConfig, SupportedNetwork};
 use serde::{Deserialize, Serialize};
@@ -10,11 +11,8 @@ pub struct StellarCoreConfig {
     pub network: String,
 }
 
-pub(crate) async fn run_stellar_core(sender: mpsc::Sender<ChainEventKind>) -> anyhow::Result<()> {
-    let project_definition = tokio::fs::read_to_string("./config/mercury.toml").await?;
-    let config: StellarCoreConfig = toml::from_str(&project_definition)?;
-
-    let network = if config.network == PUBNET {
+pub(crate) async fn run_stellar_core(sender: mpsc::Sender<ChainEventKind>, network: String) -> anyhow::Result<()> {    
+    let network = if network == PUBNET {
         SupportedNetwork::Pubnet
     } else {
         SupportedNetwork::Testnet
@@ -38,22 +36,26 @@ pub(crate) async fn run_stellar_core(sender: mpsc::Sender<ChainEventKind>) -> an
         .expect("failed to start ingesting");
     tracing::info!(target: "info", "Started online streaming.");
 
-    while let Some(result) = rv.recv().await {
-        tracing::info!(target: "info", "Got new meta object.");
-        let ledger = if let Some(ledger_wrapper) = result.ledger_close_meta {
-            ledger_wrapper.ledger_close_meta
+    loop {
+        let result = rv.recv().await;
+        if let Some(result) = result {
+            tracing::info!("Got new meta object.");
+            let ledger = if let Some(ledger_wrapper) = result.ledger_close_meta {
+                ledger_wrapper.ledger_close_meta
+            } else {
+                tracing::error!("Core stopped catching up");
+                captive.close_runner_process().unwrap();
+                std::process::exit(0);
+            };
+
+            // this is unrecoverable, means the node wrapper dropped
+            sender
+                .send(ChainEventKind::LedgerClose(StellarLedgerClose::new(ledger)))
+                .await
+                .unwrap();
         } else {
-            tracing::error!("Core stopped catching up");
-            captive.close_runner_process().unwrap();
-            std::process::exit(0);
-        };
-
-        // this is unrecoverable, means the node wrapper dropped
-        sender
-            .send(ChainEventKind::LedgerClose(StellarLedgerClose::new(ledger)))
-            .await
-            .unwrap();
+            tracing::error!("couldn't receive on receiver",);
+        }
     }
-
-    Ok(())
+    
 }

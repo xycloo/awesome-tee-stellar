@@ -2,7 +2,7 @@ use std::collections::HashMap;
 //use secp256k1::{Message, Secp256k1, SecretKey};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
-use stellar_xdr::next::{LedgerCloseMeta, LedgerEntry, LedgerKey};
+use stellar_xdr::next::{LedgerCloseMeta, LedgerEntry, LedgerKey, Limits, WriteXdr};
 
 use crate::{crypto::DST, networking::Reference};
 
@@ -12,12 +12,12 @@ pub trait ToSigningHash {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StellarLedgerClose {
-    pub meta: LedgerCloseMeta,
+    pub meta: Vec<u8>,
 }
 
 impl StellarLedgerClose {
     pub fn new(meta: LedgerCloseMeta) -> Self {
-        Self { meta }
+        Self { meta: meta.to_xdr(Limits::none()).unwrap() }
     }
 }
 
@@ -162,12 +162,12 @@ impl NetworkingMessage {
 impl ToSigningHash for MessageKind {
     fn compute_hash(&self) -> anyhow::Result<[u8; 32]> {
         let payload = match self {
-            MessageKind::ChainEvent(r) => bitcode::serialize(&r)?,
-            MessageKind::CollectorChainStateRequest(r) => bitcode::serialize(&r.kind)?,
-            MessageKind::CollectorChainStateResponse(r) => bitcode::serialize(&r.kind)?,
-            MessageKind::ExecutorChainStateRequest(r) => bitcode::serialize(&r)?,
-            MessageKind::ExecutorChainStateResponse(r) => bitcode::serialize(&r.inner)?,
-            MessageKind::ExecutorChainEvent(r) => bitcode::serialize(&r.inner)?,
+            MessageKind::ChainEvent(r) => bincode::serialize(&r)?,
+            MessageKind::CollectorChainStateRequest(r) => bincode::serialize(&r.kind)?,
+            MessageKind::CollectorChainStateResponse(r) => bincode::serialize(&r.kind)?,
+            MessageKind::ExecutorChainStateRequest(r) => bincode::serialize(&r)?,
+            MessageKind::ExecutorChainStateResponse(r) => bincode::serialize(&r.inner)?,
+            MessageKind::ExecutorChainEvent(r) => bincode::serialize(&r.inner)?,
         };
 
         let hash: [u8; 32] = sha2::Sha256::digest(&payload).try_into()?;
@@ -178,7 +178,7 @@ impl ToSigningHash for MessageKind {
 
 impl ToSigningHash for ChainEventKind {
     fn compute_hash(&self) -> anyhow::Result<[u8; 32]> {
-        let payload = bitcode::serialize(&self)?;
+        let payload = bincode::serialize(&self)?;
         let hash: [u8; 32] = sha2::Sha256::digest(&payload).try_into()?;
 
         Ok(hash)
@@ -187,7 +187,7 @@ impl ToSigningHash for ChainEventKind {
 
 impl ToSigningHash for ChainStateResponseKind {
     fn compute_hash(&self) -> anyhow::Result<[u8; 32]> {
-        let payload = bitcode::serialize(&self)?;
+        let payload = bincode::serialize(&self)?;
         let hash: [u8; 32] = sha2::Sha256::digest(&payload).try_into()?;
 
         Ok(hash)

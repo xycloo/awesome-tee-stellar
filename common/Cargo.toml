@@ -7,7 +7,7 @@ edition = "2024"
 #secp256k1 = { workspace=true }
 serde = { workspace=true }
 sha2 = { workspace=true }
-bitcode = { workspace=true, features=["serde"] }
+bincode = { workspace=true }
 libp2p = { workspace = true, features = [ "tokio", "mdns", "noise", "macros", "quic", "dns", "gossipsub", "request-response" ] }
 futures = { workspace=true }
 async-trait = { workspace=true }

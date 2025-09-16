@@ -10,7 +10,7 @@ common = {workspace=true}
 anyhow = {workspace=true}
 tracing = {workspace=true}
 tracing-subscriber = {workspace=true}
-bitcode = {workspace=true}
+bincode = {workspace=true}
 blst = {workspace=true}
 hex = {workspace=true}
 

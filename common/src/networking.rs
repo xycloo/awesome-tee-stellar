@@ -1,18 +1,13 @@
 use anyhow::Result;
 pub use libp2p::Multiaddr;
 use libp2p::{
-    PeerId, Swarm,
-    futures::StreamExt,
-    gossipsub::{
-        self, Behaviour as GossipsubBehaviour, Event as GossipsubEvent, IdentTopic as Topic,
-        MessageAuthenticity, TopicHash,
-    },
-    identity::Keypair,
-    request_response::{
+    futures::StreamExt, gossipsub::{
+        self, Behaviour as GossipsubBehaviour, Event as GossipsubEvent,
+        MessageAuthenticity,
+    }, identity::Keypair, mdns, request_response::{
         Behaviour as ReqRespBehaviour, Config as ReqRespConfig, Event as ReqRespEvent,
         Message as ReqRespMessage, ProtocolSupport, ResponseChannel,
-    },
-    swarm::{ConnectionId, DialError, NetworkBehaviour, SwarmEvent, dial_opts::DialOpts},
+    }, swarm::{dial_opts::DialOpts, ConnectionId, DialError, NetworkBehaviour, SwarmEvent}, PeerId, Swarm
 };
 use rand::random;
 use serde::{Deserialize, Serialize};
@@ -42,7 +37,7 @@ impl Outbound {
         topics: Vec<String>,
         message: NetworkingMessage,
     ) -> anyhow::Result<Self> {
-        let encoded = bitcode::serialize(&message)?;
+        let encoded = bincode::serialize(&message)?;
         Ok(Self {
             reference: None,
             to: None,
@@ -52,7 +47,7 @@ impl Outbound {
     }
 
     pub fn direct(to: PeerId, message: NetworkingMessage) -> anyhow::Result<Self> {
-        let encoded = bitcode::serialize(&message)?;
+        let encoded = bincode::serialize(&message)?;
         Ok(Self {
             to: Some(to),
             topics: Vec::new(),
@@ -65,7 +60,7 @@ impl Outbound {
         message: NetworkingMessage,
         reference: Reference,
     ) -> anyhow::Result<Self> {
-        let encoded = bitcode::serialize(&message)?;
+        let encoded = bincode::serialize(&message)?;
         Ok(Self {
             to: None,
             topics: Vec::new(),
@@ -78,7 +73,6 @@ impl Outbound {
 #[derive(Clone, Debug)]
 pub struct Inbound {
     pub from: PeerId,
-    pub topic: String,
     pub data: Vec<u8>,
     pub reference: Option<Reference>,
 }
@@ -93,6 +87,7 @@ enum Command {
 struct Behaviour {
     gossipsub: GossipsubBehaviour,
     dm: ReqRespBehaviour<DMCodec>,
+    mdns: mdns::tokio::Behaviour
 }
 
 pub struct ExecutorChannel {
@@ -129,8 +124,6 @@ pub struct Networking {
     cmd_rx: mpsc::Receiver<Command>,
     inbound_tx: mpsc::Sender<Inbound>,
     broadcast_rx: broadcast::Receiver<Outbound>,
-    topic_by_name: HashMap<String, Topic>,
-    topic_by_hash: HashMap<TopicHash, String>,
     pending_pool: HashMap<Reference, ExecutorChannel>,
 }
 
@@ -195,15 +188,10 @@ impl Networking {
                 message,
                 ..
             })) => {
-                let topic_name = self
-                    .topic_by_hash
-                    .get(&message.topic)
-                    .cloned()
-                    .unwrap_or_else(|| format!("{:?}", message.topic));
+                
                 self.inbound_tx
                     .send(Inbound {
                         from: propagation_source,
-                        topic: topic_name,
                         data: message.data.clone(),
                         reference: None,
                     })
@@ -224,7 +212,6 @@ impl Networking {
                     self.inbound_tx
                         .send(Inbound {
                             from: peer,
-                            topic: "dm".to_string(),
                             data: bytes.clone(),
                             reference: Some(reference),
                         })
@@ -240,7 +227,6 @@ impl Networking {
                     self.inbound_tx
                         .send(Inbound {
                             from: peer,
-                            topic: "dm".to_string(),
                             data: bytes.clone(),
                             reference: None,
                         })
@@ -248,6 +234,15 @@ impl Networking {
                         .unwrap();
                 }
             },
+            SwarmEvent::Behaviour(BehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
+                for (peer_id, _multiaddr) in list {
+                    println!("mDNS discovered a new peer: {peer_id}");
+                    self.swarm
+                        .behaviour_mut()
+                        .gossipsub
+                        .add_explicit_peer(&peer_id);
+                }
+            }
             _ => {}
         }
     }
@@ -255,6 +250,7 @@ impl Networking {
     fn handle_command(&mut self, cmd: Command) {
         match cmd {
             Command::Publish(out) => {
+                tracing::info!("got publish command from application.");
                 if let Some(reference) = out.reference {
                     self.respond_to_executor(reference, out.data).unwrap();
                 } else if let Some(peer) = out.to {
@@ -264,18 +260,15 @@ impl Networking {
                         .dm
                         .send_request(&peer, DMRequest(out.data.clone()));
                 } else {
+                    
                     for t in out.topics {
-                        let topic = self
-                            .topic_by_name
-                            .entry(t.clone())
-                            .or_insert_with(|| Topic::new(t.clone()))
-                            .clone();
-                        let _ = self
+                        tracing::info!("broadcasting to overlay with topic {:?}", t);
+                        let publish_result = self
                             .swarm
                             .behaviour_mut()
                             .gossipsub
-                            .publish(topic.clone(), out.data.clone());
-                        self.topic_by_hash.entry(topic.hash()).or_insert(t);
+                            .publish(gossipsub::IdentTopic::new(t.clone()), out.data.clone());
+                        tracing::info!("published {:?}",publish_result);
                     }
                 }
             }
@@ -349,6 +342,10 @@ pub fn build_overlay(
                 .heartbeat_interval(Duration::from_secs(1))
                 .build()
                 .unwrap();
+            let mdns = mdns::tokio::Behaviour::new(
+                    mdns::Config::default(),
+                    kp.public().to_peer_id(),
+                )?;
             let gossipsub =
                 GossipsubBehaviour::new(MessageAuthenticity::Signed(kp.clone()), cfg).unwrap();
 
@@ -356,20 +353,17 @@ pub fn build_overlay(
             let dm =
                 ReqRespBehaviour::new(core::iter::once((DM_PROTO, ProtocolSupport::Full)), dm_cfg);
 
-            Ok(Behaviour { gossipsub, dm })
+            Ok(Behaviour { gossipsub, dm, mdns })
         })?
         .build();
 
-    let _ = swarm.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse()?);
-
-    let mut topic_by_name: HashMap<String, Topic> = HashMap::new();
-    let mut topic_by_hash: HashMap<TopicHash, String> = HashMap::new();
     for t in topics {
-        let tp = Topic::new(t.clone());
+        let tp = gossipsub::IdentTopic::new(t);
+        tracing::info!("subscribing to topic {:?}", tp);
         let _ = swarm.behaviour_mut().gossipsub.subscribe(&tp)?;
-        topic_by_hash.insert(tp.hash(), t.clone());
-        topic_by_name.insert(t, tp);
     }
+
+    let _ = swarm.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse()?);
 
     let (inbound_tx, inbound_rx) = mpsc::channel::<Inbound>(1024);
     let (outbound_tx, outbound_rx) = broadcast::channel::<Outbound>(1024);
@@ -381,8 +375,6 @@ pub fn build_overlay(
         cmd_rx,
         inbound_tx,
         broadcast_rx: outbound_rx,
-        topic_by_name,
-        topic_by_hash,
         pending_pool: HashMap::new(),
     };
 

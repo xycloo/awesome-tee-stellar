@@ -24,7 +24,8 @@ md5 = "0.7.0"
 
 #zephyr = { package = "zephyr-vm", git = "https://github.com/xycloo/zephyr", ref="f746e55" }
 zephyr = { package = "zephyr-vm", path = "../zephyr/rs-zephyr-env" }
-ingest = {git ="https://github.com/xycloo/rs-ingest" }
+#ingest = {git ="https://github.com/xycloo/rs-ingest" }
+ingest = {path = "../rs-ingest" }
 retroshade = { git = "https://github.com/xycloo/retroshade", rev="fb5f977" }
 rs-zephyr-common = {git="https://github.com/xycloo/rs-zephyr-toolkit", branch="stellar-main-2"}
 

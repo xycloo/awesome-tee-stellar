@@ -7,6 +7,7 @@ use common::{
     networking::{Inbound, Multiaddr, Outbound, build_overlay},
 };
 use sha2::{Digest, Sha256};
+use stellar_xdr::next::{Limits, ReadXdr};
 use tokio::sync::broadcast;
 
 use crate::execute::{ConstructedZephyrBinary, db::PgConnection};
@@ -105,7 +106,7 @@ impl Executor {
     }
 
     async fn handle_overlay_message(&mut self, message: Inbound) -> anyhow::Result<()> {
-        let message: NetworkingMessage = bitcode::deserialize(&message.data)?;
+        let message: NetworkingMessage = bincode::deserialize(&message.data)?;
 
         if !self.is_signer_allowed(message.signer())? {
             anyhow::bail!("signer not allowed, needs to attest first");
@@ -160,7 +161,7 @@ impl Executor {
                     "got aggregated payload which contains non committee member {:?}, skipping this event.",
                     signer
                 );
-                return Ok(());
+                anyhow::bail!("non committee member");
             }
         }
 
@@ -174,10 +175,11 @@ impl Executor {
         evt: &AggregateSignatureData<ChainEventKind>,
     ) -> anyhow::Result<()> {
         self.verify_aggregated_signature(evt)?;
-        let client = self.db.client();
+        
         let meta = match &evt.inner {
             ChainEventKind::LedgerClose(meta) => meta.meta.clone(),
         };
+        let meta = stellar_xdr::next::LedgerCloseMeta::from_xdr(&meta, Limits::none()).unwrap();
 
         self.retroshades_main(meta).await;
 
@@ -188,7 +190,8 @@ impl Executor {
         &mut self,
         state: &AggregateSignatureData<ChainStateResponseKind>,
     ) -> anyhow::Result<()> {
-        self.verify_aggregated_signature(state)?;
+        let state_ok = self.verify_aggregated_signature(state);
+
 
         Ok(())
     }

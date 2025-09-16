@@ -3,6 +3,8 @@ use retroshade_executor::*;
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::init();
+
     let mut committee_signers = Vec::new();
     {
         let pubkey_hex = "816827a0e7abe5fd7c1c1dac37b33f50760bbb8b43ea7dd9e2730fac3437c2aaa699d609ac8cfca1def3971e1b9713af";
@@ -17,7 +19,7 @@ async fn main() {
     };
 
     let mut executor = Executor::new(committee_signers, config).await.unwrap();
-    let result = executor.worker(vec![todo!()]).await;
+    let result = executor.worker(vec![]).await;
 
     tracing::info!("{:?}", result);
 }

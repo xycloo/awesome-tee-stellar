@@ -47,7 +47,8 @@ impl<B: BlockchainClient> CommitteeNode<B> {
 
     pub async fn start(&mut self, connect_to: Vec<Multiaddr>) -> anyhow::Result<()> {
         // first we start the client job
-        let mut event_receiver = B::spawn_chain_event_worker()?;
+        let mut event_receiver = self.inner.spawn_chain_event_worker()?;
+        tracing::info!("started event receiver");
         let (mut overlay_incoming_receiver, overlay_broadcast_tx, mut overlay) =
             build_overlay(vec!["chainevent".into(), "chainstate".into()])?;
         self.set_overlay_broadcast_tx(overlay_broadcast_tx);
@@ -65,6 +66,7 @@ impl<B: BlockchainClient> CommitteeNode<B> {
         loop {
             tokio::select! {
                 new_chain_event = event_receiver.recv() => {
+                    tracing::info!("received new chain event");
                     if let Some(new_chain_event) = new_chain_event {
                         self.handle_chain_event(new_chain_event).await;
                     }
@@ -80,11 +82,10 @@ impl<B: BlockchainClient> CommitteeNode<B> {
                 }
             }
         }
-        Ok(())
     }
 
     async fn handle_overlay_message(&mut self, message: Inbound) -> anyhow::Result<()> {
-        let message: NetworkingMessage = bitcode::deserialize(&message.data)?;
+        let message: NetworkingMessage = bincode::deserialize(&message.data)?;
 
         // verify that the signature is correct. For nodes we really just want to verify that the request is coming
         // from a real executor TEE. This way we can prevent some (not all, depends on the executor's measurements) abuse to the API.
@@ -117,10 +118,12 @@ impl<B: BlockchainClient> CommitteeNode<B> {
     ) -> anyhow::Result<()> {
         let message = NetworkingMessage::new(message, self.signing_key.clone())?;
         let outbound = Outbound::from_message_and_topics(vec![topic.into()], message)?;
+        tracing::info!("data hex is {:?}", hex::encode(&outbound.data));
         let overlay_broadcast_tx = self
             .overlay_broadcast_tx
             .as_ref()
             .ok_or(anyhow::anyhow!("broadcast channel not found"))?;
+        tracing::info!("broadcasting overlay message");
         overlay_broadcast_tx.send(outbound)?;
         Ok(())
     }
@@ -134,7 +137,7 @@ impl<B: BlockchainClient> CommitteeNode<B> {
 }
 
 pub trait BlockchainClient {
-    fn spawn_chain_event_worker() -> anyhow::Result<mpsc::Receiver<ChainEventKind>>;
+    fn spawn_chain_event_worker(&self) -> anyhow::Result<mpsc::Receiver<ChainEventKind>>;
 
     fn retrieve_chain_state(
         &self,

@@ -91,7 +91,8 @@ impl<C: SigCombiner> Collector<C> {
 
     async fn handle_overlay_message(&mut self, message: Inbound) -> anyhow::Result<()> {
         let reqresp_reference = message.reference;
-        let mut message: NetworkingMessage = bitcode::deserialize(&message.data)?;
+        tracing::info!("data hex is {:?}", hex::encode(&message.data));
+        let mut message: NetworkingMessage = bincode::deserialize(&message.data).unwrap();
 
         // verify that the signature is correct. For nodes we really just want to verify that the request is coming
         // from a real executor TEE. This way we can prevent some (not all, depends on the executor's measurements) abuse to the API.
@@ -195,7 +196,7 @@ impl<C: SigCombiner> Collector<C> {
             let signers = entry.rules.participating_signers();
 
             let mut outbound = entry.message.clone();
-            let mut message: NetworkingMessage = bitcode::deserialize(&outbound.data)?;
+            let mut message: NetworkingMessage = bincode::deserialize(&outbound.data)?;
             let mut inner = message.inner();
 
             match &mut inner {
@@ -213,7 +214,7 @@ impl<C: SigCombiner> Collector<C> {
             }
 
             message.set_inner(inner);
-            outbound.data = bitcode::serialize(&message)?;
+            outbound.data = bincode::serialize(&message)?;
 
             (reached, outbound)
         };

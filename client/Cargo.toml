@@ -12,8 +12,9 @@ tokio = {workspace=true}
 sha2 = {workspace=true}
 anyhow = {workspace=true}
 common = {workspace=true}
-bitcode = {workspace=true}
+bincode = {workspace=true}
 blst = {workspace=true}
+hex = {workspace=true}
 
 [features]
 default = ["allow_all_executors"]

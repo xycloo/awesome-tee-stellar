@@ -1,8 +1,11 @@
 use stellar::*;
+use tokio::runtime::Builder;
 
-#[tokio::main]
-async fn main() {
-    let client = StellarClient::new("127.0.0.1:8085".into());
+fn main() {
+    tracing_subscriber::fmt::init();
+    let rt = Builder::new_multi_thread().enable_all().worker_threads(4).build().unwrap();
+    
+    let client = StellarClient::new("127.0.0.1:8085".into(), "Test SDF Network ; September 2015".into());
     let key: [u8; 32] =
         hex::decode("14c65e7f01ad92298c396f0957bdf5b16e513b7302d2e84b8424a70d866ccfd4")
             .unwrap()
@@ -10,7 +13,7 @@ async fn main() {
             .unwrap();
 
     let mut node = client.client_from_self(&key).unwrap();
-    let result = node.start(vec![todo!()]).await;
+    let result = rt.block_on(node.start(vec![]));
 
     tracing::info!("{:?}", result);
 }
